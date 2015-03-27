@@ -10,9 +10,6 @@ require 'rss'
 
 $KEYS = Hashr.new YAML::load File.open File.expand_path "API_KEYS.yml"
 @USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0"
-@STORATE_PATH = File.join Dir.home, "hashmusic"
-
-fail "#{@STORATE_PATH} does not exist, please create it" unless File.exists? @STORATE_PATH
 
 @twitter_client = Twitter::REST::Client.new do |config|
   config.consumer_key    = $KEYS.TWITTER.API_KEY
@@ -26,6 +23,12 @@ end
 #}
 
 @soundcloud_client = Soundcloud.new(:client_id =>  $KEYS.SOUNDCLOUD.CLIENT_ID)
+
+def search_soundcloud2 terms, results = 5
+  terms = terms.join " " if terms.class == Array
+  tracks = @soundcloud_client.get('/tracks', :q => terms, :licence => 'cc-by-sa')
+  tracks.take(results).map{|track| puts track.stream_url}
+end
 
 def search_soundcloud terms, results = 5
   terms = terms.join " " if terms.class == Array
@@ -45,17 +48,18 @@ def load_items url
   @items = RSS::Parser.parse(tmp, false).items
 end
 
-def download_the_music url
-  YoutubeDL.download url, {"extract-audio":true, "no-overwrites":true, output:@STORATE_PATH}
+def get_the_music url
+  YoutubeDL.download url, {"get-url":true}
 end
 
-puts "searching youtube"
-search_youtube("rick astley never gonna give you up").each{|url| puts url}
+#puts "searching youtube"
+#search_youtube("rick astley never gonna give you up").each{|url| puts url}
 
 puts 
 
 puts "searching soundcloud"
-search_soundcloud("rick astley never gonna give you up").each{|url| puts url}
-puts "downloading first track from soundcloud"
-download_the_music search_soundcloud("rick astley never gonna give you up").first
+search_soundcloud2("rick astley never gonna give you up").each{|url| puts url}
+
+#puts "downloading first track from soundcloud"
+#puts get_the_music search_soundcloud("rick astley never gonna give you up").first
 
