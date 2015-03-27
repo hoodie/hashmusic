@@ -24,16 +24,12 @@ end
 
 @soundcloud_client = Soundcloud.new(:client_id =>  $KEYS.SOUNDCLOUD.CLIENT_ID)
 
-def search_soundcloud2 terms, results = 5
-  terms = terms.join " " if terms.class == Array
-  tracks = @soundcloud_client.get('/tracks', :q => terms, :licence => 'cc-by-sa')
-  tracks.take(results).map{|track| puts track.stream_url}
-end
-
 def search_soundcloud terms, results = 5
   terms = terms.join " " if terms.class == Array
   tracks = @soundcloud_client.get('/tracks', :q => terms, :licence => 'cc-by-sa')
-  tracks.take(results).map{|track| track.permalink_url }
+  urls = tracks.take(results).map{|track| track.download_url}
+  urls.select!{|url|url}
+  urls = urls.map{|url| "#{url}?client_id=#{$KEYS.SOUNDCLOUD.CLIENT_ID}"}
 end
 
 def search_youtube terms, results = 5
@@ -49,17 +45,11 @@ def load_items url
 end
 
 def get_the_music url
-  YoutubeDL.download url, {"get-url":true}
+  YoutubeDL.download url, {:"get-url" => true}
 end
 
 #puts "searching youtube"
 #search_youtube("rick astley never gonna give you up").each{|url| puts url}
 
-puts 
-
 puts "searching soundcloud"
-search_soundcloud2("rick astley never gonna give you up").each{|url| puts url}
-
-#puts "downloading first track from soundcloud"
-#puts get_the_music search_soundcloud("rick astley never gonna give you up").first
-
+puts search_soundcloud("rick astley never gonna give you up")#.each{|url| puts url}
