@@ -7,6 +7,7 @@ require 'soundcloud'
 require 'hashr'
 require 'open-uri'
 require 'rss'
+require 'librmpd'
 
 @HASHTAG = "hashmusic"
 
@@ -15,14 +16,6 @@ $KEYS = Hashr.new YAML::load File.open File.expand_path "API_KEYS.yml"
 @STORATE_PATH = File.join Dir.home, "hashmusic"
 
 fail "#{@STORATE_PATH} does not exist, please create it" unless File.exists? @STORATE_PATH
-
-@twitter_client = Twitter::REST::Client.new do |config|
-  config.consumer_key    = $KEYS.TWITTER.API_KEY
-  config.consumer_secret = $KEYS.TWITTER.SECRET
-  config.bearer_token = $KEYS.TWITTER.BEARER_TOKEN
-end
-
-@soundcloud_client = Soundcloud.new(:client_id =>  $KEYS.SOUNDCLOUD.CLIENT_ID)
 
 def search_soundcloud terms, results = 1
   terms = terms.join " " if terms.class == Array
@@ -49,10 +42,19 @@ def get_the_music terms, user, id = "00000"
   name = "#{terms} - #{user}"
   YoutubeDL.download url, {:"extract-audio"=>true, :"no-overwrites"=>true, output:"#{@STORATE_PATH}/#{name}.%(ext)s"}
   puts url
-  puts Dir.glob "#{@STORATE_PATH}/#{name}.*"
+  Dir.glob "#{@STORATE_PATH}/#{name}.*"
 end
 
-#get_the_music "rick astley never gonna give you up", "testuser"
+
+@twitter_client = Twitter::REST::Client.new do |config|
+  config.consumer_key    = $KEYS.TWITTER.API_KEY
+  config.consumer_secret = $KEYS.TWITTER.SECRET
+  config.bearer_token = $KEYS.TWITTER.BEARER_TOKEN
+end
+
+@soundcloud_client = Soundcloud.new(:client_id =>  $KEYS.SOUNDCLOUD.CLIENT_ID)
+
+@mpd_client = MPD.new "music.wg"
 
 @twitter_client.search(@HASHTAG).take(5).each{|tweet|
   text = tweet.text.split(" ")
@@ -60,6 +62,13 @@ end
   text.delete(?#+@HASHTAG)
   text = text.join(" ")
   puts "#{tweet.user.name}: #{text}"
-  get_the_music text, ?@+tweet.user.screen_name
+  path = get_the_music text, ?@+tweet.user.screen_name
+  begin
+  @mpd_client.connect unless @mpd_client.connected?
+  @mpd_client.add path
+  rescue RuntimeError => e
+    puts e
+  end
+  puts "done\n\n"
 }
 
