@@ -7,6 +7,7 @@ require 'soundcloud'
 require 'hashr'
 require 'open-uri'
 require 'rss'
+require 'paint'
 require 'librmpd'
 
 @HASHTAG = "hashmusic"
@@ -60,6 +61,9 @@ def feed_to_mpd path
   puts "done\n\n"
 end
 
+#def feed_to_mpd path
+#  puts path
+#end
 @twitter_client = Twitter::REST::Client.new do |config|
   config.consumer_key    = $KEYS.TWITTER.API_KEY
   config.consumer_secret = $KEYS.TWITTER.SECRET
@@ -70,13 +74,28 @@ end
 
 @mpd_client = MPD.new "music.wg"
 
-@twitter_client.search(@HASHTAG).take(5).each{|tweet|
-  text = tweet.text.split(" ")
-  text.delete(@HASHTAG)
-  text.delete(?#+@HASHTAG)
-  text = text.join(" ")
-  puts "#{tweet.user.name}: #{text}"
-  path = get_the_music text, ?@+tweet.user.screen_name
-  feed_to_mpd path
-}
+def update
+  @twitter_client.search(@HASHTAG).take(5).each{|tweet|
+    text = tweet.text.split(" ")
+    text.delete(@HASHTAG)
+    text.delete(?#+@HASHTAG)
+      text = text.join(" ")
+    puts "#{tweet.user.name}: #{text}"
+    puts tweet.created_at
+    age = (Time.now.to_time - tweet.created_at)/(60*60)
+    if age < (5.0/60)
+      puts Paint[" using \"#{tweet.text}\" (#{age}h)", :green]
+      path = get_the_music text, ?@+tweet.user.screen_name
+      feed_to_mpd path
+    else
+      puts Paint["to old \"#{tweet.text}\" (#{age}h)", :yellow]
+    end
+    puts
+  }
+end
 
+while true do
+  puts Paint["NEW ROUND OF MUSIC #{Time.now}", :green, :bright]
+  update()
+  sleep 60*2
+end
