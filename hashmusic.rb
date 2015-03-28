@@ -13,7 +13,8 @@ require 'librmpd'
 
 $KEYS = Hashr.new YAML::load File.open File.expand_path "API_KEYS.yml"
 @USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0"
-@STORATE_PATH = File.join Dir.home, "hashmusic"
+#@STORATE_PATH = File.join Dir.home, "hashmusic"
+@STORATE_PATH = "/home/mpd/music/hashmusic"
 
 fail "#{@STORATE_PATH} does not exist, please create it" unless File.exists? @STORATE_PATH
 
@@ -42,9 +43,22 @@ def get_the_music terms, user, id = "00000"
   name = "#{terms} - #{user}"
   YoutubeDL.download url, {:"extract-audio"=>true, :"no-overwrites"=>true, output:"#{@STORATE_PATH}/#{name}.%(ext)s"}
   puts url
-  Dir.glob "#{@STORATE_PATH}/#{name}.*"
+  file = File.split(Dir.glob("#{@STORATE_PATH}/#{name}.*")[0])[1]
+  path = File.join File.split(@STORATE_PATH)[1] , file
 end
 
+def feed_to_mpd path
+  begin
+    @mpd_client.connect unless @mpd_client.connected?
+    puts "updating mpd database, why?"
+    @mpd_client.update File.split(@STORATE_PATH)[1]
+    puts "adding #{path} to playinlist"
+    @mpd_client.add path
+  rescue RuntimeError => e
+    puts e
+  end
+  puts "done\n\n"
+end
 
 @twitter_client = Twitter::REST::Client.new do |config|
   config.consumer_key    = $KEYS.TWITTER.API_KEY
@@ -63,12 +77,6 @@ end
   text = text.join(" ")
   puts "#{tweet.user.name}: #{text}"
   path = get_the_music text, ?@+tweet.user.screen_name
-  begin
-  @mpd_client.connect unless @mpd_client.connected?
-  @mpd_client.add path
-  rescue RuntimeError => e
-    puts e
-  end
-  puts "done\n\n"
+  feed_to_mpd path
 }
 
